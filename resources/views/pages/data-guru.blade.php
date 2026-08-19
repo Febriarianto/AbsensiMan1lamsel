@@ -28,6 +28,10 @@
                       <i class="fas fa-download mr-1"></i> Template Excel
                   </button>
 
+
+                  <button onclick="importGuruFromSimpeg()" class="bg-sky-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:bg-sky-700 transition" title="Tarik data guru dari SIMPEG">
+                      <i class="fas fa-cloud-download-alt mr-1"></i> Import SIMPEG
+                  </button>
                   <button onclick="triggerImportGuru()" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:bg-emerald-700 transition">
                       <i class="fas fa-file-excel mr-1"></i> Import Excel
                   </button>

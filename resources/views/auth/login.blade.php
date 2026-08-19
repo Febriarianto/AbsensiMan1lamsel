@@ -58,7 +58,7 @@
 
                 <form id="loginForm" method="POST" action="{{ route('login') }}" class="space-y-4">
                     @csrf
-                    <input type="hidden" id="login_type" name="login_type" value="siswa">
+                    <input type="hidden" id="login_type" name="login_type" value="{{ old('login_type', $errors->has('sso') ? 'admin' : 'siswa') }}">
 
                     @if ($errors->has('login_type'))
                         <div id="serverLoginError" class="mb-3 p-3.5 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 animate-fade-in">
@@ -68,6 +68,18 @@
                             <div>
                                 <h4 class="text-sm font-bold text-red-700">Akses Ditolak</h4>
                                 <p class="text-xs text-red-600 mt-0.5">{{ $errors->first('login_type') }}</p>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if ($errors->has('sso'))
+                        <div id="serverSsoError" class="mb-3 p-3.5 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 animate-fade-in">
+                            <div class="p-2 bg-red-100 rounded-full text-red-600 shrink-0">
+                                <i class="fas fa-exclamation-triangle text-xs"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-red-700">SSO Kemenag Gagal</h4>
+                                <p class="text-xs text-red-600 mt-0.5">{{ $errors->first('sso') }}</p>
                             </div>
                         </div>
                     @endif
@@ -188,6 +200,19 @@
                                 <button type="button" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline" data-forgot-password-open>
                                     Lupa password?
                                 </button>
+                            </div>
+
+                            <div class="pt-1">
+                                <div class="flex items-center gap-3 mb-3" aria-hidden="true">
+                                    <span class="h-px flex-1 bg-slate-200"></span>
+                                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">atau</span>
+                                    <span class="h-px flex-1 bg-slate-200"></span>
+                                </div>
+                                <a href="{{ route('sso.login') }}" class="w-full py-3 px-4 bg-white hover:bg-slate-50 text-[#0879C9] font-bold rounded-xl border border-[#87C8F4] transition-all active:scale-[0.98] text-sm flex justify-center items-center gap-2">
+                                    <i class="fas fa-shield-alt" aria-hidden="true"></i>
+                                    <span>Masuk dengan SSO Kemenag</span>
+                                </a>
+                                <p class="mt-2 text-center text-[11px] leading-4 text-slate-500">Khusus akun GTK dan admin yang telah terdaftar dengan NIP.</p>
                             </div>
                         </div>
                     </div>
@@ -1117,7 +1142,12 @@
         initAjaxLogin();
         initLoginFieldErrorClear();
         initForgotPasswordModal();
-        resetSiswaFlow(false);
+        const initialLoginType = String(document.getElementById('login_type')?.value || 'siswa');
+        if (initialLoginType === 'admin') {
+            switchLoginTab('admin');
+        } else {
+            resetSiswaFlow(false);
+        }
         setLoginSubmitIdleLabel();
         lockLoginFormsHeight();
         window.addEventListener('resize', lockLoginFormsHeight);

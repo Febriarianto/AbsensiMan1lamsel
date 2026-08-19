@@ -517,8 +517,25 @@ class StudentRecordService extends BaseActionService
         }
 
         $existing = Siswa::query()->pluck('nisn')->map(fn ($n) => trim((string) $n))->flip();
+        $incomingCardCodes = collect($dataArray)
+            ->filter(fn ($item) => is_array($item))
+            ->map(fn (array $item) => strtoupper(trim((string) ($item['nomorKartu'] ?? $item['nomor_kartu'] ?? ''))))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $existingAssignedCards = $incomingCardCodes === []
+            ? []
+            : KartuAbsensi::query()
+                ->where('type', KartuAbsensi::TYPE_RFID)
+                ->whereIn('code', $incomingCardCodes)
+                ->whereNotNull('siswa_id')
+                ->pluck('siswa_id', 'code')
+                ->all();
 
         $rowsToAdd = [];
+        $cardsByNisn = [];
+        $importedCardCodes = [];
         $addedCount = 0;
         $skippedCount = 0;
         $kelasToSync = [];
@@ -552,6 +569,25 @@ class StudentRecordService extends BaseActionService
                 continue;
             }
 
+            $nomorKartu = strtoupper(trim((string) ($item['nomorKartu'] ?? $item['nomor_kartu'] ?? '')));
+            if (strlen($nomorKartu) > 255) {
+                $skippedCount++;
+                $errors[] = "Baris {$rowNumber}: Nomor kartu maksimal 255 karakter.";
+                continue;
+            }
+
+            if ($nomorKartu !== '' && isset($existingAssignedCards[$nomorKartu])) {
+                $skippedCount++;
+                $errors[] = "Baris {$rowNumber}: Nomor kartu {$nomorKartu} sudah ditautkan ke siswa lain.";
+                continue;
+            }
+
+            if ($nomorKartu !== '' && isset($importedCardCodes[$nomorKartu])) {
+                $skippedCount++;
+                $errors[] = "Baris {$rowNumber}: Nomor kartu {$nomorKartu} duplikat di file import.";
+                continue;
+            }
+
             $kelas = $this->normalizeKelasValue($item['kelas'] ?? null);
             if ($kelas !== null) {
                 $kelasToSync[] = $kelas;
@@ -580,15 +616,34 @@ class StudentRecordService extends BaseActionService
                 'updated_at' => now(),
             ];
 
+            if ($nomorKartu !== '') {
+                $cardsByNisn[$nisn] = $nomorKartu;
+                $importedCardCodes[$nomorKartu] = true;
+            }
+
             $existing[$nisn] = true;
             $addedCount++;
         }
 
         try {
             if (!empty($rowsToAdd)) {
-                DB::transaction(function () use ($kelasToSync, $rowsToAdd): void {
+                DB::transaction(function () use ($cardsByNisn, $kelasToSync, $rowsToAdd): void {
                     $this->syncKelasValues($kelasToSync);
                     Siswa::query()->insert($rowsToAdd);
+
+                    if ($cardsByNisn !== []) {
+                        $insertedStudents = Siswa::query()
+                            ->whereIn('nisn', array_keys($cardsByNisn))
+                            ->get()
+                            ->keyBy(fn (Siswa $siswa) => trim((string) $siswa->nisn));
+
+                        foreach ($cardsByNisn as $nisn => $nomorKartu) {
+                            $siswa = $insertedStudents->get($nisn);
+                            if ($siswa instanceof Siswa) {
+                                $this->syncSiswaRfidCardOrFail($siswa, $nomorKartu);
+                            }
+                        }
+                    }
                 });
             }
         } catch (\Throwable $exception) {

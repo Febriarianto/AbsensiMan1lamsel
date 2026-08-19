@@ -1,27 +1,28 @@
 <?php
 
+use App\Http\Controllers\AbsensiPelajaranController;
+use App\Http\Controllers\ArsipController;
+use App\Http\Controllers\Auth\SSOController;
+use App\Http\Controllers\BackupRestoreSettingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataGuruController;
 use App\Http\Controllers\DataPiketController;
 use App\Http\Controllers\DataSiswaController;
-use App\Http\Controllers\AbsensiPelajaranController;
-use App\Http\Controllers\ArsipController;
-use App\Http\Controllers\BackupRestoreSettingController;
 use App\Http\Controllers\DeviceSettingController;
 use App\Http\Controllers\GeneralSettingController;
 use App\Http\Controllers\InstallController;
+use App\Http\Controllers\IzinSakitRequestController;
+use App\Http\Controllers\JadwalPelajaranController;
+use App\Http\Controllers\JurnalMengajarHarianController;
 use App\Http\Controllers\KartuAbsensiController;
+use App\Http\Controllers\KartuSiswaController;
 use App\Http\Controllers\KelolaAbsenController;
 use App\Http\Controllers\KelolaKelasController;
-use App\Http\Controllers\KartuSiswaController;
 use App\Http\Controllers\KenaikanKelasController;
 use App\Http\Controllers\MonitoringController;
 use App\Http\Controllers\NotificationSettingController;
 use App\Http\Controllers\PoinPelanggaranController;
 use App\Http\Controllers\ProfileSettingController;
-use App\Http\Controllers\JadwalPelajaranController;
-use App\Http\Controllers\JurnalMengajarHarianController;
-use App\Http\Controllers\IzinSakitRequestController;
 use App\Http\Controllers\RekapAbsensiController;
 use App\Http\Controllers\RekapAbsensiPelajaranController;
 use App\Http\Controllers\RekapBulananController;
@@ -31,7 +32,8 @@ use App\Http\Controllers\ScannerController;
 use App\Http\Controllers\SiswaMataPelajaranController;
 use App\Http\Controllers\SiswaPresensiController;
 use App\Http\Controllers\TabunganSiswaController;
-//use App\Http\Controllers\UpdateSettingController;
+use App\Http\Controllers\Api\CountApiController;
+// use App\Http\Controllers\UpdateSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/install', [InstallController::class, 'requirementsStep'])->name('install.requirements');
@@ -39,6 +41,12 @@ Route::get('/install/database', [InstallController::class, 'databaseStep'])->nam
 Route::post('/install/database', [InstallController::class, 'storeDatabase'])->name('install.database.store');
 Route::get('/install/website', [InstallController::class, 'websiteStep'])->name('install.website');
 Route::post('/install/website', [InstallController::class, 'install'])->name('install.website.store');
+Route::get('/api/jumlah-siswa', [CountApiController::class, 'index']);
+
+Route::middleware(['guest', 'throttle:10,1'])->group(function (): void {
+    Route::get('/sso/login', [SSOController::class, 'redirectToProvider'])->name('sso.login');
+    Route::get('/sso/callback', [SSOController::class, 'handleProviderCallback'])->name('sso.callback');
+});
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -295,7 +303,6 @@ Route::middleware('auth')->group(function () {
             Route::post('/check', [UpdateSettingController::class, 'check'])->name('check');
             Route::post('/install', [UpdateSettingController::class, 'install'])->name('install');
         });
-
 });
 
 require __DIR__ . '/emis.php';

@@ -23,6 +23,8 @@ use App\Services\WaGatewayService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -578,6 +580,173 @@ class StaffRecordService extends BaseActionService
             'skipped_count' => $skippedCount,
         ];
     }
+    public function importGuruFromSimpeg($auth): array
+    {
+        if (!$this->authHasAnyRole($auth, ['admin', 'kepsek'])) {
+            return ['success' => false, 'message' => 'Akses Ditolak: Anda tidak memiliki izin.'];
+        }
+
+        $url = trim((string) config('services.simpeg_export.url'));
+        $token = trim((string) config('services.simpeg_export.token'));
+        $consumerDomain = trim((string) config('services.simpeg_export.consumer_domain'));
+        $perPage = min(100, max(1, (int) config('services.simpeg_export.per_page', 100)));
+        $timeout = max(1, (int) config('services.simpeg_export.timeout', 30));
+
+        if ($url === '' || $token === '') {
+            return [
+                'success' => false,
+                'message' => 'Konfigurasi SIMPEG belum lengkap. Periksa URL dan token API pada file .env.',
+            ];
+        }
+
+        $employees = [];
+        $cursor = null;
+
+        for ($page = 1; $page <= 100; $page++) {
+            $query = ['per_page' => $perPage];
+            if ($cursor !== null) {
+                $query['cursor'] = $cursor;
+            }
+
+            try {
+                $request = Http::acceptJson()
+                    ->timeout($timeout)
+                    ->withToken($token);
+
+                if ($consumerDomain !== '') {
+                    $request = $request->withHeaders([
+                        'X-Consumer-Domain' => $consumerDomain,
+                    ]);
+                }
+
+                $response = $request->get($url, $query);
+            } catch (\Throwable $exception) {
+                Log::warning('Import guru SIMPEG gagal terhubung.', [
+                    'exception' => $exception->getMessage(),
+                ]);
+
+                return [
+                    'success' => false,
+                    'message' => 'Gagal menghubungi server SIMPEG. Periksa URL layanan dan koneksi server.',
+                ];
+            }
+
+            if ($response->failed()) {
+                Log::warning('Import guru SIMPEG ditolak.', [
+                    'status' => $response->status(),
+                ]);
+
+                return [
+                    'success' => false,
+                    'message' => $response->status() === 401 || $response->status() === 403
+                        ? 'Akses SIMPEG ditolak. Periksa token API dan consumer domain.'
+                        : 'Server SIMPEG tidak dapat memproses permintaan saat ini.',
+                ];
+            }
+
+            $payload = $response->json();
+            $pageEmployees = is_array($payload) ? ($payload['data'] ?? null) : null;
+
+            if (!is_array($pageEmployees)) {
+                return [
+                    'success' => false,
+                    'message' => 'Format data dari SIMPEG tidak sesuai. Data guru tidak diubah.',
+                ];
+            }
+
+            foreach ($pageEmployees as $employee) {
+                if (is_array($employee)) {
+                    $employees[] = $employee;
+                }
+            }
+
+            if (count($employees) > 2000) {
+                return [
+                    'success' => false,
+                    'message' => 'Data SIMPEG melebihi batas 2.000 guru untuk sekali import.',
+                ];
+            }
+
+            $nextCursor = trim((string) data_get($payload, 'meta.next_cursor', ''));
+            if ($nextCursor === '') {
+                break;
+            }
+
+            if ($nextCursor === $cursor) {
+                return [
+                    'success' => false,
+                    'message' => 'Pagination SIMPEG tidak valid. Data guru tidak diubah.',
+                ];
+            }
+
+            $cursor = $nextCursor;
+
+            if ($page === 100) {
+                return [
+                    'success' => false,
+                    'message' => 'Pagination SIMPEG terlalu panjang. Batasi data lalu coba kembali.',
+                ];
+            }
+        }
+
+        $rows = [];
+        $invalidCount = 0;
+        $mappingErrors = [];
+
+        foreach ($employees as $index => $employee) {
+            $username = '';
+            foreach (['identity_nip', 'nip_baru', 'nip'] as $field) {
+                $candidate = preg_replace('/\s+/', '', trim((string) ($employee[$field] ?? ''))) ?? '';
+                if ($candidate !== '') {
+                    $username = $candidate;
+                    break;
+                }
+            }
+
+            if ($username === '') {
+                $invalidCount++;
+                $mappingErrors[] = sprintf('Data SIMPEG #%d dilewati karena NIP tidak tersedia.', $index + 1);
+                continue;
+            }
+
+            $name = trim((string) ($employee['nama_lengkap'] ?? $employee['nama'] ?? ''));
+            $rows[] = [
+                '_baris' => $index + 1,
+                'username' => $username,
+                'password' => Str::random(64),
+                'name' => $name !== '' ? $name : $username,
+            ];
+        }
+
+        if (empty($rows)) {
+            return [
+                'success' => true,
+                'added' => 0,
+                'skipped' => $invalidCount,
+                'errors' => array_slice($mappingErrors, 0, 10),
+                'message' => 'Tidak ada data guru SIMPEG yang dapat ditambahkan.',
+            ];
+        }
+
+        $result = $this->importGuruBulk([$rows], $auth);
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $added = (int) ($result['added'] ?? 0);
+        $skipped = (int) ($result['skipped'] ?? 0) + $invalidCount;
+        $errors = array_slice(array_merge($mappingErrors, $result['errors'] ?? []), 0, 10);
+
+        return [
+            'success' => true,
+            'added' => $added,
+            'skipped' => $skipped,
+            'errors' => $errors,
+            'message' => "Import SIMPEG selesai. Berhasil: {$added}, Duplikat/Gagal: {$skipped}. Akun baru dapat masuk melalui SSO Kemenag.",
+        ];
+    }
+
+
 
 
     public function importGuruBulk(array $args, $auth): array

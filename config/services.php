@@ -50,4 +50,19 @@ return [
         'dispatch_mode' => env('TELEGRAM_NOTIFICATION_DISPATCH_MODE', env('WA_NOTIFICATION_DISPATCH_MODE', 'QUEUE')),
     ],
 
+    'kemenag_sso' => [
+        'url' => env('KEMENAG_SSO_URL', 'https://sso.kemenag.go.id/v2'),
+        'client_id' => env('KEMENAG_SSO_CLIENT_ID'),
+        'timeout' => (int) env('KEMENAG_SSO_TIMEOUT', 15),
+    ],
+
+    'simpeg_export' => [
+        'url' => env('SIMPEG_EXPORT_API_URL', 'http://localhost:8000/api/v1/simpeg-employees'),
+        'token' => env('SIMPEG_EXPORT_API_TOKEN'),
+        'consumer_domain' => env('SIMPEG_EXPORT_CONSUMER_DOMAIN', 'localhost'),
+        'per_page' => (int) env('SIMPEG_EXPORT_PER_PAGE', 100),
+        'rate_limit' => (int) env('SIMPEG_EXPORT_RATE_LIMIT', 60),
+        'timeout' => (int) env('SIMPEG_EXPORT_TIMEOUT', 30),
+    ],
+
 ];

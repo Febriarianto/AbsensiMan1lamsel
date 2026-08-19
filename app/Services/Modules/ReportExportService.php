@@ -2879,7 +2879,7 @@ class ReportExportService extends LessonWorkflowService
 
 
     /**
-     * Template XLSX menjaga NISN dan nomor HP sebagai teks agar nol di depan tidak hilang.
+     * Template XLSX menjaga NISN, nomor HP, dan nomor kartu sebagai teks.
      * Petunjuk ditempatkan pada sheet terpisah sehingga tidak ikut terbaca saat import.
      */
     protected function buildStudentImportTemplateXlsx(array $headers): string
@@ -2905,9 +2905,10 @@ class ReportExportService extends LessonWorkflowService
         $sheet->freezePane('A2');
         $sheet->setAutoFilter("A1:{$lastColumn}1");
 
-        // B = NISN, H = No HP. Keduanya wajib bertipe teks saat diisi di Excel.
+        // B = NISN, H = No HP, K = Nomor Kartu. Nilai harus tetap berupa teks.
         $sheet->getStyle('B2:B2001')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
         $sheet->getStyle('H2:H2001')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
+        $sheet->getStyle('K2:K2001')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
         $sheet->getStyle("A1:{$lastColumn}2001")
             ->getBorders()
             ->getAllBorders()
@@ -2921,9 +2922,10 @@ class ReportExportService extends LessonWorkflowService
         $guide->setTitle('Petunjuk');
         $guide->setCellValue('A1', 'PETUNJUK IMPORT SISWA');
         $guide->setCellValue('A3', '1. Isi data mulai baris kedua pada sheet Data Siswa.');
-        $guide->setCellValue('A4', '2. Nama dan NISN wajib diisi. NISN dan No HP sudah diformat sebagai teks.');
+        $guide->setCellValue('A4', '2. Nama dan NISN wajib diisi. NISN, No HP, dan Nomor Kartu sudah diformat sebagai teks.');
         $guide->setCellValue('A5', '3. Tanggal Lahir dapat ditulis YYYY-MM-DD atau DD/MM/YYYY.');
-        $guide->setCellValue('A6', '4. Jangan mengubah nama header pada baris pertama.');
+        $guide->setCellValue('A6', '4. Nomor Kartu bersifat opsional dan harus unik untuk setiap siswa.');
+        $guide->setCellValue('A7', '5. Jangan mengubah nama header pada baris pertama.');
         $guide->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $guide->getColumnDimension('A')->setWidth(100);
 
@@ -2998,8 +3000,8 @@ class ReportExportService extends LessonWorkflowService
     {
         return match ($type) {
             'siswa' => [
-                ['Nama', 'NISN', 'Jenis Kelamin', 'Tanggal Lahir', 'Agama', 'Nama Ayah', 'Nama Ibu', 'No HP', 'Kelas', 'Alamat'],
-                ['Contoh Siswa', '1234567890', 'Laki-laki', '2010-01-01', 'Islam', 'Ayah', 'Ibu', '081234567890', '7A', 'Alamat'],
+                ['Nama', 'NISN', 'Jenis Kelamin', 'Tanggal Lahir', 'Agama', 'Nama Ayah', 'Nama Ibu', 'No HP', 'Kelas', 'Alamat', 'Nomor Kartu'],
+                ['Contoh Siswa', '1234567890', 'Laki-laki', '2010-01-01', 'Islam', 'Ayah', 'Ibu', '081234567890', '7A', 'Alamat', '04A1B2C3D4'],
             ],
             'guru' => [
                 ['Username', 'Password', 'Nama', 'Email', 'Kelas', 'Jenis Kelamin', 'Tanggal Lahir', 'Agama', 'No HP', 'Alamat'],

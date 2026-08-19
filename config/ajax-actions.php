@@ -31,6 +31,7 @@ return [
         'getAppConfig' => 'ajax.shared.config.show',
         'saveAppConfig' => 'ajax.shared.config.update',
         'importSiswaBulk' => 'ajax.students.import',
+        'importGuruFromSimpeg' => 'ajax.staff.guru.import-simpeg',
         'importGuruBulk' => 'ajax.staff.guru.import',
         'importPiketBulk' => 'ajax.staff.piket.import',
         'importHariLiburBulk' => 'ajax.shared.holidays.import',

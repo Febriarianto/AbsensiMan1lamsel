@@ -2266,6 +2266,38 @@ function processImportSiswa(data, inputElement) {
     // FITUR IMPORT EXCEL GURU
     // ==========================================================================
     
+    function importGuruFromSimpeg() {
+        if (!window.confirm('Tarik data guru dari SIMPEG sekarang? Data dengan NIP yang sudah ada akan dilewati.')) {
+            return;
+        }
+
+        showLoading();
+        actionRunner
+            .withSuccessHandler(res => {
+                hideLoading();
+
+                if (!res.success) {
+                    showAlert('error', res.message || 'Import SIMPEG gagal.');
+                    return;
+                }
+
+                if (Number(res.added || 0) > 0) {
+                    tableState.guru.fullData = [];
+                    loadDataGuru();
+                }
+
+                const errors = Array.isArray(res.errors) && res.errors.length > 0
+                    ? `\n${res.errors.slice(0, 5).join('\n')}`
+                    : '';
+                showAlert('success', `${res.message || 'Import SIMPEG selesai.'}${errors}`);
+            })
+            .withFailureHandler(error => {
+                hideLoading();
+                showAlert('error', `Import SIMPEG gagal: ${error}`);
+            })
+            .importGuruFromSimpeg();
+    }
+
     function triggerImportGuru() {
         document.getElementById('fileInputGuru').click();
     }

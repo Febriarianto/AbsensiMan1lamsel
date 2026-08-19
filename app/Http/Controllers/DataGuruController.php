@@ -49,4 +49,8 @@ class DataGuruController extends PageActionController
     {
         return $this->respondArgsAuth($request, fn (array $args, $auth) => $this->staffRecords->importGuruBulk($args, $auth));
     }
+    public function importFromSimpeg(): JsonResponse
+    {
+        return $this->respondAuth(fn ($auth) => $this->staffRecords->importGuruFromSimpeg($auth));
+    }
 }
